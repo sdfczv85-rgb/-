@@ -86,7 +86,7 @@ const ground = new THREE.Mesh(new THREE.BoxGeometry(100,1,100), new THREE.MeshSt
 ground.position.y=-.5; ground.receiveShadow=true; ground.userData.isGround=true; scene.add(ground);
 const grid = new THREE.GridHelper(100,100,"#ffffff55","#ffffff25"); grid.position.y=-.04; scene.add(grid);
 // Jump-map platforms: their tops are solid and can be used as checkpoints.
-const staticSolids=[];
+const staticSolids=[ground];
 function makePlatform(x,y,z,w,h,d,color,checkpointPad=false,finishPad=false){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color,emissive:finishPad?0x554400:0}));m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;m.userData.checkpointPad=checkpointPad;m.userData.finishPad=finishPad;scene.add(m);staticSolids.push(m);return m;}
 makePlatform(16,1.5,0,5,1,5,"#42a5f5",true);makePlatform(23,3,0,3,1,3,"#ffca28");makePlatform(29,3.5,4,4,1,4,"#69f0ae",true);makePlatform(36,5,4,3,1,3,"#ff8a65");makePlatform(43,5.5,0,5,1,5,"#b388ff",true);makePlatform(50,7,0,3,1,3,"#ff5252");makePlatform(57,8.5,3,6,1,6,"#ffd740",false,true);
 for(let i=0;i<35;i++){
