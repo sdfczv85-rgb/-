@@ -1,235 +1,434 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>블록월드 온라인</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlockWorld Online</title>
 <style>
-  *{box-sizing:border-box} body{margin:0;font-family:system-ui,"Malgun Gothic",sans-serif;background:#101827;color:#f4f7fb;overflow:hidden}
-  #game{position:fixed;inset:0}
-  .panel{position:fixed;background:rgba(15,23,42,.88);border:1px solid #35445e;border-radius:14px;padding:12px;backdrop-filter:blur(8px);box-shadow:0 8px 30px #0003}
-  #top{top:12px;left:12px;right:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  h1{font-size:18px;margin:0 8px 0 0} .muted{color:#b7c4d8;font-size:12px}
-  input,button{font:inherit;border-radius:9px;border:1px solid #4b5b76;padding:8px 10px}
-  input{background:#111c30;color:white;min-width:0} button{background:#3478f6;color:white;border:0;cursor:pointer;font-weight:700}
-  button:hover{filter:brightness(1.12)} button.secondary{background:#34445f}
-  #tools{left:12px;top:92px;width:190px;display:grid;gap:8px}
-  #players{right:12px;top:92px;width:180px;max-height:36vh;overflow:auto}
-  #chat{right:12px;bottom:12px;width:min(320px,calc(100vw - 24px));}
-  #messages{height:140px;overflow:auto;font-size:13px;display:flex;flex-direction:column;gap:5px;margin:8px 0}
-  #chatform{display:flex;gap:6px}#chatinput{flex:1;width:10px}
-  #help{left:12px;bottom:12px;max-width:min(420px,calc(100vw - 24px));font-size:12px;line-height:1.55}
-  .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.swatches{display:flex;gap:6px}
-  .swatch{width:24px;height:24px;padding:0;border:2px solid #ffffff55;border-radius:50%}
-  .playerline{font-size:13px;padding:5px 0;border-bottom:1px solid #ffffff12;overflow-wrap:anywhere}
-  #status{font-size:12px;color:#9ee6b0}
-  #hud{position:fixed;z-index:4;top:75px;left:50%;transform:translateX(-50%);background:#101827cc;border:1px solid #ffffff44;border-radius:10px;padding:8px 12px;text-align:center;font-size:12px;pointer-events:none}
-  #attack{position:fixed;z-index:6;bottom:18px;left:50%;transform:translateX(-50%);padding:12px 18px;background:#e64c65;border-radius:14px}
-  #toast{position:fixed;z-index:7;top:135px;left:50%;transform:translateX(-50%);padding:9px 14px;border-radius:10px;background:#17243bef;border:1px solid #ffffff44;display:none;font-weight:700}
-  @media(max-width:650px){#tools{top:auto;bottom:180px;width:160px}#players{top:82px;width:135px}#help{display:none}#top{font-size:12px}h1{font-size:15px}}
+*{box-sizing:border-box}
+body{margin:0;overflow:hidden;background:#87ceeb;font-family:Arial,sans-serif}
+#ui{position:fixed;inset:0;pointer-events:none;color:white;text-shadow:1px 2px 3px #222}
+#top{position:absolute;top:12px;left:12px;background:#0008;padding:12px 16px;border-radius:12px}
+#help{position:absolute;bottom:15px;left:50%;transform:translateX(-50%);background:#0009;padding:10px 16px;border-radius:10px;text-align:center;white-space:nowrap}
+#crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:24px}
+#status{position:absolute;top:12px;right:12px;background:#0008;padding:10px;border-radius:10px}
+#start{position:fixed;inset:0;background:#0009;display:flex;align-items:center;justify-content:center;z-index:5;color:white}
+#panel{background:#222e;padding:30px;border:2px solid #ffffff55;border-radius:18px;text-align:center;max-width:90%}
+button{padding:12px 24px;font-size:18px;font-weight:bold;border:0;border-radius:10px;background:#4caf50;color:white;cursor:pointer}
+#message{margin-top:10px;color:#ffec99}
 </style>
 </head>
 <body>
-<div id="game"></div>
-<div id="top" class="panel">
-  <h1>🧱 블록월드 온라인</h1>
-  <span id="status">서버 연결 중...</span>
-  <form id="nameform" class="row"><input id="nameinput" maxlength="16" placeholder="내 이름" value="플레이어"><button>이름 변경</button></form>
+<div id="ui">
+  <div id="top">
+    <b>🧊 BlockWorld Online</b><br>
+    위치: <span id="pos">0, 0, 0</span><br>
+    블록: <span id="count">0</span>
+  </div>
+  <div id="status">WASD 이동 · Space 점프</div>
+  <div id="crosshair">＋</div>
+  <div id="help">WASD 이동 | 마우스 시점 | Space 점프 | 좌클릭 블록 제거 | 우클릭 블록 설치</div>
 </div>
-<div id="tools" class="panel">
-  <strong>🛠️ 블록 도구</strong>
-  <div class="muted">색상을 고르고 땅을 클릭해 설치하세요.</div>
-  <div class="swatches" id="swatches"></div>
-  <button id="placebtn">🧱 설치 모드</button>
-  <button id="removebtn" class="secondary">🗑️ 제거 모드</button>
-  <hr style="border-color:#ffffff22;width:100%"><strong>🏁 점프맵 · ⚔️ PvP</strong><button id="obbybtn" class="secondary">🚩 점프맵 시작</button><button id="spawnbtn" class="secondary">↩️ 체크포인트 복귀</button>
-  <div class="muted" id="modeinfo">현재: 설치 모드</div>
-</div>
-<div id="hud" class="panel">❤️ <span id="healthtext">100 / 100</span><div id="healthbar" style="width:150px;height:7px;background:#522b35;border-radius:8px;overflow:hidden;margin-top:4px"><div id="healthfill" style="height:100%;width:100%;background:#50d890"></div></div><div id="checkpoint">🏁 체크포인트: 시작 지점</div></div>
-<div id="players" class="panel"><strong>👥 접속 플레이어</strong><div id="playerlist"></div></div>
-<div id="help" class="panel">⌨️ 이동: <b>W A S D</b> 또는 방향키 · 점프: <b>Space</b><br>🎥 마우스 오른쪽 버튼을 누른 채 드래그해 시점을 회전하고 휠로 줌인/아웃하세요.
-⚔️ F 또는 공격 버튼으로 가까운 플레이어를 공격하세요. 블록은 통과할 수 없어요.<br><span class="muted">다른 사람이 접속하려면 서버가 실행 중이어야 합니다.</span></div>
-<button id="attack">⚔️ 공격 (F)</button><div id="toast"></div>
-<div id="chat" class="panel">
-  <strong>💬 실시간 채팅</strong>
-  <div id="messages"></div>
-  <form id="chatform"><input id="chatinput" maxlength="160" placeholder="메시지 입력..." autocomplete="off"><button>전송</button></form>
-</div>
-<script src="/socket.io/socket.io.js"></script>
-<script type="module">
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
 
-const socket = io();
-const game = document.getElementById("game");
-const statusEl = document.getElementById("status");
-const playerList = document.getElementById("playerlist");
-const messages = document.getElementById("messages");
-const nameInput = document.getElementById("nameinput");
-let myId = null, mode = "place", selectedColor = "#42a5f5", health = 100, checkpoint = new THREE.Vector3(0,0,0), attackReady = true;
-const remotePlayers = new Map(), blockMeshes = new Map();
-const keys = {};
+<div id="start">
+  <div id="panel">
+    <h1>🧊 BlockWorld Online</h1>
+    <p>블록 세계를 탐험하고 직접 건축해 봐!</p>
+    <p>WASD 이동 · Space 점프 · 마우스 시점</p>
+    <button id="play">게임 시작</button>
+    <div id="message"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+(() => {
+"use strict";
+
 const scene = new THREE.Scene();
-scene.background = new THREE.Color("#9bd5ff");
-scene.fog = new THREE.Fog("#9bd5ff", 45, 115);
-const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, .1, 200);
+scene.background = new THREE.Color("#87ceeb");
+scene.fog = new THREE.Fog("#87ceeb", 60, 180);
+
+const camera = new THREE.PerspectiveCamera(
+  75, window.innerWidth / window.innerHeight, 0.1, 300
+);
+
 const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setSize(innerWidth, innerHeight);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-game.appendChild(renderer.domElement);
-scene.add(new THREE.HemisphereLight(0xffffff, 0x66805b, 2));
-const sun = new THREE.DirectionalLight(0xffffff, 2.1);
-sun.position.set(-15,30,12); sun.castShadow=true; scene.add(sun);
+document.body.appendChild(renderer.domElement);
 
-const ground = new THREE.Mesh(new THREE.BoxGeometry(100,1,100), new THREE.MeshStandardMaterial({color:"#65b95d"}));
-ground.position.y=-.5; ground.receiveShadow=true; ground.userData.isGround=true; scene.add(ground);
-const grid = new THREE.GridHelper(100,100,"#ffffff55","#ffffff25"); grid.position.y=-.04; scene.add(grid);
-// Jump-map platforms: their tops are solid and can be used as checkpoints.
-const staticSolids=[ground];
-function makePlatform(x,y,z,w,h,d,color,checkpointPad=false,finishPad=false){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color,emissive:finishPad?0x554400:0}));m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;m.userData.checkpointPad=checkpointPad;m.userData.finishPad=finishPad;scene.add(m);staticSolids.push(m);return m;}
-makePlatform(16,1.5,0,5,1,5,"#42a5f5",true);makePlatform(23,3,0,3,1,3,"#ffca28");makePlatform(29,3.5,4,4,1,4,"#69f0ae",true);makePlatform(36,5,4,3,1,3,"#ff8a65");makePlatform(43,5.5,0,5,1,5,"#b388ff",true);makePlatform(50,7,0,3,1,3,"#ff5252");makePlatform(57,8.5,3,6,1,6,"#ffd740",false,true);
-for(let i=0;i<35;i++){
-  const h=1.5+Math.random()*4, r=.35+Math.random()*.65;
-  const trunk=new THREE.Mesh(new THREE.BoxGeometry(.45,h*.45,.45),new THREE.MeshStandardMaterial({color:"#80512e"}));
-  const crown=new THREE.Mesh(new THREE.BoxGeometry(1.5*r,h,1.5*r),new THREE.MeshStandardMaterial({color:["#238b57","#2f9e44","#4caf50"][i%3]}));
-  const x=(Math.random()-.5)*86,z=(Math.random()-.5)*86;
-  if(Math.abs(x)<8&&Math.abs(z)<8) continue;
-  trunk.position.set(x,h*.22,z); crown.position.set(x,h*.75,z);
-  trunk.castShadow=true;crown.castShadow=true;scene.add(trunk,crown);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x65734c, 2));
+
+const sun = new THREE.DirectionalLight(0xffffff, 2);
+sun.position.set(30, 60, 20);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+scene.add(sun);
+
+const materials = {
+  grass: new THREE.MeshStandardMaterial({color:"#65b95d"}),
+  dirt: new THREE.MeshStandardMaterial({color:"#8b5a2b"}),
+  stone: new THREE.MeshStandardMaterial({color:"#888888"}),
+  wood: new THREE.MeshStandardMaterial({color:"#9a6538"}),
+  leaves: new THREE.MeshStandardMaterial({color:"#26843b"}),
+  sand: new THREE.MeshStandardMaterial({color:"#e5d18c"})
+};
+
+const blocks = [];
+const blockMap = new Map();
+const blockGeometry = new THREE.BoxGeometry(1,1,1);
+const worldGroup = new THREE.Group();
+scene.add(worldGroup);
+
+const keyOf = (x,y,z) => `${x},${y},${z}`;
+
+function addBlock(x,y,z,type="grass") {
+  x=Math.round(x); y=Math.round(y); z=Math.round(z);
+  const key=keyOf(x,y,z);
+  if(blockMap.has(key)) return null;
+
+  const material=materials[type] || materials.grass;
+  const mesh=new THREE.Mesh(blockGeometry,material);
+  mesh.position.set(x,y,z);
+  mesh.castShadow=true;
+  mesh.receiveShadow=true;
+  mesh.userData={x,y,z,type,isBlock:true};
+
+  worldGroup.add(mesh);
+  blockMap.set(key,mesh);
+  blocks.push(mesh);
+  return mesh;
 }
 
-function makeAvatar(color, name){
-  const group=new THREE.Group();
-  const mat=new THREE.MeshStandardMaterial({color});
-  const body=new THREE.Mesh(new THREE.BoxGeometry(.8,1,.45),mat);body.position.y=1.25;body.castShadow=true;group.add(body);
-  const head=new THREE.Mesh(new THREE.BoxGeometry(.68,.68,.68),new THREE.MeshStandardMaterial({color:"#ffd7ad"}));head.position.y=2.1;head.castShadow=true;group.add(head);
-  const legMat=new THREE.MeshStandardMaterial({color:"#253b67"});
-  for(const x of [-.22,.22]){const leg=new THREE.Mesh(new THREE.BoxGeometry(.25,.65,.3),legMat);leg.position.set(x,.42,0);leg.castShadow=true;group.add(leg);}
-  const canvas=document.createElement("canvas");canvas.width=256;canvas.height=64;
-  const ctx=canvas.getContext("2d");ctx.fillStyle="white";ctx.font="bold 28px sans-serif";ctx.textAlign="center";ctx.fillText(name||"플레이어",128,40);
-  const tex=new THREE.CanvasTexture(canvas);const label=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true}));
-  label.scale.set(2.5,.62,1);label.position.y=2.9;group.add(label);group.userData.label=label;group.userData.labelCanvas=canvas;
-  return group;
+function removeBlock(mesh) {
+  if(!mesh || !mesh.userData.isBlock) return;
+  const d=mesh.userData;
+  blockMap.delete(keyOf(d.x,d.y,d.z));
+  worldGroup.remove(mesh);
+  const i=blocks.indexOf(mesh);
+  if(i!==-1) blocks.splice(i,1);
 }
-function setAvatarName(avatar,name){
-  const c=avatar.userData.labelCanvas,ctx=c.getContext("2d");ctx.clearRect(0,0,c.width,c.height);
-  ctx.fillStyle="rgba(20,30,50,.72)";ctx.fillRect(0,5,c.width,52);
-  ctx.fillStyle="white";ctx.font="bold 28px sans-serif";ctx.textAlign="center";ctx.fillText(name||"플레이어",128,40);
-  avatar.userData.label.material.map.needsUpdate=true;
-}
-const myAvatar=makeAvatar("#4dabf7","나");scene.add(myAvatar);
-let myPos=new THREE.Vector3(0,0,0), velocityY=0, grounded=true, yaw=0, pitch=.25, camDist=9;
-const raycaster=new THREE.Raycaster(), pointer=new THREE.Vector2();
-let lastSent=0, lastFrame=performance.now();
-function addRemote(p){
-  if(p.id===myId)return;
-  let a=remotePlayers.get(p.id);
-  if(!a){a=makeAvatar(p.color,p.name);scene.add(a);remotePlayers.set(p.id,a);}
-  a.position.set(p.x,p.y-1,p.z);setAvatarName(a,p.name);
-}
-function updatePlayerList(players){
-  playerList.innerHTML="";
-  players.forEach(p=>{const d=document.createElement("div");d.className="playerline";d.textContent=(p.id===myId?"🟢 ":"🔵 ")+p.name;playerList.appendChild(d);});
-}
-function addChat(name,text){
-  const d=document.createElement("div");d.textContent=name+": "+text;messages.appendChild(d);
-  while(messages.children.length>40)messages.removeChild(messages.firstChild);
-  messages.scrollTop=messages.scrollHeight;
-}
-function addBlock(b){
-  if(blockMeshes.has(b.id))return;
-  const mesh=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({color:b.color}));
-  mesh.position.set(b.x,b.y+.5,b.z);mesh.castShadow=true;mesh.receiveShadow=true;mesh.userData.blockId=b.id;scene.add(mesh);blockMeshes.set(b.id,mesh);
-}
-function removeBlock(id){const m=blockMeshes.get(id);if(m){scene.remove(m);m.geometry.dispose();m.material.dispose();blockMeshes.delete(id);}}
-function updateMode(){document.getElementById("modeinfo").textContent="현재: "+(mode==="place"?"설치 모드":"제거 모드");}
-const colors=["#42a5f5","#ff5252","#ffd740","#69f0ae","#b388ff","#ffffff","#ff8a65"];
-const swatches=document.getElementById("swatches");
-colors.forEach(c=>{const b=document.createElement("button");b.className="swatch";b.style.background=c;b.title=c;b.onclick=()=>{selectedColor=c;[...swatches.children].forEach(x=>x.style.outline="none");b.style.outline="2px solid white";};swatches.appendChild(b);if(c===selectedColor)b.style.outline="2px solid white";});
-document.getElementById("placebtn").onclick=()=>{mode="place";updateMode();};
-document.getElementById("removebtn").onclick=()=>{mode="remove";updateMode();};
-function showToast(t){const el=document.getElementById("toast");el.textContent=t;el.style.display="block";clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>el.style.display="none",1800);}
-document.getElementById("obbybtn").onclick=()=>{myPos.set(10,3,0);myAvatar.position.copy(myPos);velocityY=0;checkpoint.set(10,3,0);document.getElementById("checkpoint").textContent="🏁 체크포인트: 점프맵 시작";showToast("점프맵 시작! 플랫폼 위로 점프하세요.");};
-document.getElementById("spawnbtn").onclick=()=>{myPos.copy(checkpoint);myAvatar.position.copy(myPos);velocityY=0;showToast("체크포인트로 돌아왔어요.");};
-document.getElementById("attack").onclick=()=>attack();
-function attack(){if(!attackReady||!myId)return;attackReady=false;socket.emit("pvp:attack");setTimeout(()=>attackReady=true,700);}
 
-document.getElementById("nameform").addEventListener("submit",e=>{e.preventDefault();socket.emit("player:name",nameInput.value);});
-document.getElementById("chatform").addEventListener("submit",e=>{e.preventDefault();const v=document.getElementById("chatinput");if(v.value.trim())socket.emit("chat:send",v.value);v.value="";});
-socket.on("connect",()=>{statusEl.textContent="🟢 서버 연결됨";statusEl.style.color="#9ee6b0";});
-socket.on("disconnect",()=>{statusEl.textContent="🔴 연결 끊김";statusEl.style.color="#ff9a9a";});
-socket.on("world:init",data=>{
-  myId=data.id;myAvatar.material; // 첫 연결 시 내 캐릭터는 아래에서 위치를 갱신
-  data.players.forEach(p=>{if(p.id===myId){myPos.set(p.x,0,p.z);myAvatar.material; }else addRemote(p);});
-  data.blocks.forEach(addBlock);updatePlayerList(data.players);
-  socket.emit("player:name",nameInput.value);
-});
-socket.on("player:join",p=>{addRemote(p);updatePlayerList([...remotePlayers.entries()].map(([id,a])=>({id,name:"플레이어"})).concat([{id:myId,name:nameInput.value}]));addChat("알림",p.name+" 님이 들어왔어요.");});
-socket.on("player:update",p=>{if(p.id===myId){nameInput.value=p.name;myAvatar.userData.label&&setAvatarName(myAvatar,p.name);}else{addRemote(p);} });
-socket.on("player:move",p=>{const a=remotePlayers.get(p.id);if(a)a.position.set(p.x,p.y-1,p.z);});
-socket.on("player:leave",id=>{const a=remotePlayers.get(id);if(a){scene.remove(a);remotePlayers.delete(id);}addChat("알림","플레이어가 나갔어요.");});
-socket.on("block:placed",addBlock);socket.on("block:removed",removeBlock);
-socket.on("chat:message",m=>addChat(m.name,m.text));
-socket.on("players:list",updatePlayerList);
-socket.on("pvp:health",d=>{if(d.id===myId){const h=document.getElementById("healthtext"),f=document.getElementById("healthfill");h.textContent=d.health+" / 100";f.style.width=d.health+"%";if(d.health<=0){myPos.copy(checkpoint);myAvatar.position.copy(myPos);socket.emit("pvp:respawn");showToast("쓰러졌어요! 체크포인트에서 부활합니다.");}}});
-socket.on("pvp:hit",d=>{if(d.attacker===myId)showToast(d.name+" 명중!");else if(d.target===myId)showToast(d.attackerName+"에게 공격받았어요!");});
-socket.on("world:saved",()=>showToast("월드 저장 완료!"));
+function makeTree(x,z) {
+  const h=2+Math.floor(Math.random()*2);
+  for(let y=1;y<=h;y++) addBlock(x,y,z,"wood");
 
-addEventListener("keydown",e=>{keys[e.code]=true;if(e.code==="KeyF"&&!e.repeat)attack();if(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code))e.preventDefault();});
-addEventListener("keyup",e=>keys[e.code]=false);
-renderer.domElement.addEventListener("click",e=>{
-  if(e.target.closest?.(".panel"))return;
-  pointer.x=(e.clientX/innerWidth)*2-1;pointer.y=-(e.clientY/innerHeight)*2+1;
-  raycaster.setFromCamera(pointer,camera);
-  const hits=raycaster.intersectObjects([ground,...staticSolids,...blockMeshes.values()],false);
-  if(!hits.length)return;
-  const hit=hits[0], obj=hit.object;
-  if(obj.userData.checkpointPad){checkpoint.set(obj.position.x,obj.position.y+obj.geometry.parameters.height/2,obj.position.z);document.getElementById("checkpoint").textContent="🏁 체크포인트 저장됨";showToast("체크포인트 저장!");return;}if(obj.userData.finishPad){showToast("🏆 점프맵 완주! 축하해요!");return;}
-  if(mode==="remove"){
-    if(obj.userData.blockId)socket.emit("block:remove",obj.userData.blockId);
+  for(let dx=-2;dx<=2;dx++) {
+    for(let dz=-2;dz<=2;dz++) {
+      for(let dy=h;dy<=h+2;dy++) {
+        if(Math.abs(dx)+Math.abs(dz)+Math.abs(dy-h)<=4 &&
+           Math.random()>.12) {
+          addBlock(x+dx,dy,z+dz,"leaves");
+        }
+      }
+    }
+  }
+}
+
+function makeWorld() {
+  // 바닥을 넓고 연속적으로 생성
+  for(let x=-30;x<=30;x++) {
+    for(let z=-30;z<=30;z++) {
+      addBlock(x,-1,z,"dirt");
+      addBlock(x,0,z,"grass");
+    }
+  }
+
+  // 주변 지형
+  for(let i=0;i<90;i++) {
+    const x=Math.floor(Math.random()*55)-27;
+    const z=Math.floor(Math.random()*55)-27;
+    if(Math.abs(x)<5 && Math.abs(z)<5) continue;
+
+    if(Math.random()<.55) {
+      const height=1+Math.floor(Math.random()*4);
+      for(let y=1;y<=height;y++) {
+        addBlock(x,y,z,Math.random()<.5?"stone":"dirt");
+      }
+    } else {
+      makeTree(x,z);
+    }
+  }
+
+  // 시작 지점 주변을 평평하게 유지
+  for(let x=-3;x<=3;x++) {
+    for(let z=-3;z<=3;z++) {
+      for(let y=1;y<=8;y++) {
+        removeBlock(blockMap.get(keyOf(x,y,z)));
+      }
+      addBlock(x,-1,z,"dirt");
+      addBlock(x,0,z,"grass");
+    }
+  }
+}
+makeWorld();
+
+const player = {
+  x:0, y:2.01, z:0,
+  vy:0,
+  grounded:false,
+  height:1.8,
+  radius:.3,
+  speed:6
+};
+
+let yaw=0, pitch=0;
+let playing=false;
+let selectedType="grass";
+const keys={};
+const raycaster=new THREE.Raycaster();
+const center=new THREE.Vector2(0,0);
+
+function getBlockAt(x,y,z) {
+  return blockMap.get(keyOf(Math.round(x),Math.round(y),Math.round(z)));
+}
+
+function overlapsBlock(px,py,pz,mesh) {
+  const d=mesh.userData;
+  return px+player.radius>d.x-.5 &&
+         px-player.radius<d.x+.5 &&
+         pz+player.radius>d.z-.5 &&
+         pz-player.radius<d.z+.5 &&
+         py<d.y+.5 &&
+         py+player.height>d.y-.5;
+}
+
+function collidesAt(px,py,pz) {
+  const minX=Math.floor(px-player.radius-.5);
+  const maxX=Math.floor(px+player.radius+.5);
+  const minY=Math.floor(py-.5);
+  const maxY=Math.floor(py+player.height+.5);
+  const minZ=Math.floor(pz-player.radius-.5);
+  const maxZ=Math.floor(pz+player.radius+.5);
+
+  for(let x=minX;x<=maxX;x++) {
+    for(let y=minY;y<=maxY;y++) {
+      for(let z=minZ;z<=maxZ;z++) {
+        const mesh=getBlockAt(x,y,z);
+        if(mesh && overlapsBlock(px,py,pz,mesh)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function findLanding(px,pz,oldY,newY) {
+  let best=-Infinity;
+
+  const minX=Math.floor(px-player.radius-.5);
+  const maxX=Math.floor(px+player.radius+.5);
+  const minZ=Math.floor(pz-player.radius-.5);
+  const maxZ=Math.floor(pz+player.radius+.5);
+
+  for(let x=minX;x<=maxX;x++) {
+    for(let z=minZ;z<=maxZ;z++) {
+      const mesh=getBlockAt(x,0,z);
+      // 모든 높이의 블록을 확인
+      for(let y=-1;y<=20;y++) {
+        const b=getBlockAt(x,y,z);
+        if(!b) continue;
+
+        const d=b.userData;
+        const insideX=px+player.radius>d.x-.5 &&
+                      px-player.radius<d.x+.5;
+        const insideZ=pz+player.radius>d.z-.5 &&
+                      pz-player.radius<d.z+.5;
+        const top=d.y+.5;
+
+        if(insideX && insideZ &&
+           oldY>=top-.08 && newY<=top &&
+           player.vy<=0) {
+          best=Math.max(best,top);
+        }
+      }
+    }
+  }
+  return best;
+}
+
+function updateCamera() {
+  camera.position.set(
+    player.x,
+    player.y+1.55,
+    player.z
+  );
+  camera.rotation.order="YXZ";
+  camera.rotation.y=yaw;
+  camera.rotation.x=pitch;
+}
+
+function moveAxis(dx,dz) {
+  const nx=player.x+dx;
+  if(!collidesAt(nx,player.y,player.z)) player.x=nx;
+
+  const nz=player.z+dz;
+  if(!collidesAt(player.x,player.y,nz)) player.z=nz;
+}
+
+function updatePlayer(dt) {
+  const forward=(keys.KeyW?1:0)-(keys.KeyS?1:0);
+  const side=(keys.KeyD?1:0)-(keys.KeyA?1:0);
+  const len=Math.hypot(forward,side)||1;
+
+  const speed=player.speed;
+  const dx=(Math.sin(yaw)*forward+Math.cos(yaw)*side)*speed*dt/len;
+  const dz=(Math.cos(yaw)*forward-Math.sin(yaw)*side)*speed*dt/len;
+
+  moveAxis(dx,dz);
+
+  if(keys.Space && player.grounded) {
+    player.vy=8.5;
+    player.grounded=false;
+  }
+
+  const oldY=player.y;
+  player.vy=Math.max(player.vy-22*dt,-45);
+  let newY=oldY+player.vy*dt;
+
+  const land=findLanding(player.x,player.z,oldY,newY);
+
+  if(land!==-Infinity && player.vy<=0 && newY<=land) {
+    newY=land;
+    player.vy=0;
+    player.grounded=true;
+  } else {
+    player.grounded=false;
+  }
+
+  if(!collidesAt(player.x,newY,player.z)) {
+    player.y=newY;
+  } else if(player.vy>0) {
+    player.vy=0;
+  } else {
+    // 충돌이 발생하면 이전의 안전한 높이를 유지
+    player.y=oldY;
+    player.vy=0;
+    player.grounded=true;
+  }
+
+  // 월드 바깥으로 떨어졌을 때 시작 지점으로 복귀
+  if(player.y < -25) {
+    player.x=0;
+    player.y=2.01;
+    player.z=0;
+    player.vy=0;
+    player.grounded=false;
+  }
+
+  document.getElementById("pos").textContent =
+    `${player.x.toFixed(1)}, ${player.y.toFixed(1)}, ${player.z.toFixed(1)}`;
+
+  document.getElementById("count").textContent=blocks.length;
+}
+
+function getTargetBlock() {
+  raycaster.setFromCamera(center,camera);
+  const hits=raycaster.intersectObjects(blocks,false);
+  return hits.length && hits[0].distance<7 ? hits[0] : null;
+}
+
+function mineBlock() {
+  const hit=getTargetBlock();
+  if(!hit) return;
+  const mesh=hit.object;
+  if(mesh.userData.y<=0) {
+    document.getElementById("message").textContent="바닥 블록은 제거할 수 없어!";
     return;
   }
-  const point=hit.point.clone();
-  if(obj.userData.blockId)point.add(hit.face.normal.clone().multiplyScalar(.51));
-  else point.y=.5;
-  socket.emit("block:place",{x:Math.round(point.x),y:Math.max(0,Math.round(point.y-.5)),z:Math.round(point.z),color:selectedColor});
+  removeBlock(mesh);
+  document.getElementById("count").textContent=blocks.length;
+}
+
+function placeBlock() {
+  const hit=getTargetBlock();
+  if(!hit) return;
+
+  const normal=hit.face.normal.clone()
+    .transformDirection(hit.object.matrixWorld);
+
+  const d=hit.object.userData;
+  const x=d.x+Math.round(normal.x);
+  const y=d.y+Math.round(normal.y);
+  const z=d.z+Math.round(normal.z);
+
+  const mesh=addBlock(x,y,z,selectedType);
+  if(mesh && overlapsBlock(player.x,player.y,player.z,mesh)) {
+    removeBlock(mesh);
+  }
+  document.getElementById("count").textContent=blocks.length;
+}
+
+document.getElementById("play").addEventListener("click",()=>{
+  playing=true;
+  document.getElementById("start").style.display="none";
+  renderer.domElement.requestPointerLock();
 });
-let dragging=false,lastX=0,lastY=0;
-renderer.domElement.addEventListener("contextmenu",e=>e.preventDefault());
-renderer.domElement.addEventListener("mousedown",e=>{if(e.button===2){dragging=true;lastX=e.clientX;lastY=e.clientY;}});
-addEventListener("mouseup",()=>dragging=false);
-addEventListener("mousemove",e=>{if(!dragging)return;yaw-=(e.clientX-lastX)*.007;pitch=Math.max(-.25,Math.min(.9,pitch+(e.clientY-lastY)*.006));lastX=e.clientX;lastY=e.clientY;});
-renderer.domElement.addEventListener("wheel",e=>{camDist=THREE.MathUtils.clamp(camDist+Math.sign(e.deltaY)*.8,4,16);},{passive:true});
-function getSolids(){return [...staticSolids,...blockMeshes.values()];}
-function collidesAt(x,y,z){const r=.36,h=1.8;for(const m of getSolids()){const p=m.position,g=m.geometry.parameters||{},sx=g.width||1,sy=g.height||1,sz=g.depth||1;if(x+r>p.x-sx/2&&x-r<p.x+sx/2&&z+r>p.z-sz/2&&z-r<p.z+sz/2&&y<p.y+sy/2-.02&&y+h>p.y-sy/2+.02)return true;}return false;}
-function landHeight(x,z,oldY,newY){let best=-100;for(const m of getSolids()){const p=m.position,g=m.geometry.parameters||{},sx=g.width||1,sy=g.height||1,sz=g.depth||1,top=p.y+sy/2;if(x+.3>p.x-sx/2&&x-.3<p.x+sx/2&&z+.3>p.z-sz/2&&z-.3<p.z+sz/2&&velocityY<=0&&oldY>=top-.12&&newY<=top+.1)best=Math.max(best,top);}return best;}
-function animate(now){
+
+document.addEventListener("pointerlockchange",()=>{
+  if(document.pointerLockElement!==renderer.domElement && playing) {
+    document.getElementById("start").style.display="flex";
+  }
+});
+
+document.addEventListener("mousemove",e=>{
+  if(document.pointerLockElement!==renderer.domElement) return;
+  yaw-=e.movementX*.002;
+  pitch-=e.movementY*.002;
+  pitch=Math.max(-1.5,Math.min(1.5,pitch));
+});
+
+document.addEventListener("keydown",e=>{
+  keys[e.code]=true;
+  if(e.code==="Space") e.preventDefault();
+
+  if(e.code==="Digit1") selectedType="grass";
+  if(e.code==="Digit2") selectedType="dirt";
+  if(e.code==="Digit3") selectedType="stone";
+  if(e.code==="Digit4") selectedType="wood";
+  if(e.code==="Digit5") selectedType="leaves";
+});
+
+document.addEventListener("keyup",e=>keys[e.code]=false);
+
+document.addEventListener("mousedown",e=>{
+  if(document.pointerLockElement!==renderer.domElement) return;
+  if(e.button===0) mineBlock();
+  if(e.button===2) placeBlock();
+});
+
+document.addEventListener("contextmenu",e=>e.preventDefault());
+
+window.addEventListener("blur",()=>{
+  for(const k in keys) keys[k]=false;
+});
+
+window.addEventListener("resize",()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+
+let last=performance.now();
+
+function animate(now) {
   requestAnimationFrame(animate);
-  const dt=Math.min((now-lastFrame)/1000,.05);lastFrame=now;
-  const forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
-  const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
-  let move=new THREE.Vector3();
-  if(keys.KeyW||keys.ArrowUp)move.add(forward);
-  if(keys.KeyS||keys.ArrowDown)move.sub(forward);
-  if(keys.KeyD||keys.ArrowRight)move.add(right);
-  if(keys.KeyA||keys.ArrowLeft)move.sub(right);
-  if(move.lengthSq()>0){move.normalize().multiplyScalar(7.5*dt);const nx=myPos.x+move.x,nz=myPos.z+move.z;if(!collidesAt(nx,myPos.y,myPos.z))myPos.x=nx;if(!collidesAt(myPos.x,myPos.y,nz))myPos.z=nz;myAvatar.rotation.y=Math.atan2(move.x,move.z);}
-  myPos.x=THREE.MathUtils.clamp(myPos.x,-52,65);myPos.z=THREE.MathUtils.clamp(myPos.z,-52,52);
-  if(keys.Space&&grounded){velocityY=8.5;grounded=false;}
-  const oldY=myPos.y;velocityY-=22*dt;let newY=myPos.y+velocityY*dt;const land=landHeight(myPos.x,myPos.z,oldY,newY);
-  if(land>-90&&newY<=land){newY=land;velocityY=0;grounded=true;}else grounded=false;
-  if(!collidesAt(myPos.x,newY,myPos.z))myPos.y=newY;else if(velocityY>0){velocityY=0;}else{myPos.y=oldY;velocityY=0;grounded=true;}
-  if(myPos.y < -10){myPos.copy(checkpoint);velocityY=0;showToast("낙하했어요. 체크포인트로 복귀!");}
-  myAvatar.position.copy(myPos);
-  const target=new THREE.Vector3(myPos.x,1.4+myPos.y,myPos.z);
-  const camOffset=new THREE.Vector3(Math.sin(yaw)*camDist,2.5+pitch*5,Math.cos(yaw)*camDist);
-  camera.position.lerp(target.clone().add(camOffset),.12);camera.lookAt(target);
-  if(now-lastSent>80&&myId){socket.emit("player:move",{x:myPos.x,y:1,z:myPos.z});lastSent=now;}
+  const dt=Math.min((now-last)/1000,.033);
+  last=now;
+
+  if(playing) {
+    updatePlayer(dt);
+    updateCamera();
+  }
+
   renderer.render(scene,camera);
 }
+
+updateCamera();
 requestAnimationFrame(animate);
-addEventListener("resize",()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+})();
 </script>
 </body>
 </html>
